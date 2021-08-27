@@ -87,10 +87,9 @@ class Plotter():
     def __init__(self, fig, ax, x_data, data_worker):
         """
         fig: Figure
-        ax:
+        ax: Axes
         x_data: array of x values
-        n_values: number of values in a line
-        n_points: number of x points to plot
+        data_worker: instance of DataWorker that provide data
         """
         self._x_data = x_data
         self.data_worker = data_worker
