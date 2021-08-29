@@ -22,6 +22,7 @@ class DataWorker(threading.Thread):
         self._ser = ser
         self._running = False
         self._lock = threading.Lock()
+        self.logger = logging.getLogger("serial_plotter")
 
     def stop(self):
         self._running = False
@@ -38,7 +39,7 @@ class DataWorker(threading.Thread):
         """
         Worker loop
         """
-        logging.debug("Start running worker")
+        self.logger.debug("Start running worker")
         self._running = True
         line = ""
         while self._running:
@@ -46,18 +47,18 @@ class DataWorker(threading.Thread):
                 if self._ser.is_open:
                     line = self._ser.readline()
             except Exception as e:
-                logging.error("Serial port Exception: "+ str(e))
+                self.logger.exception("Serial port Exception")
             if line:
                 line2 = line.decode("utf-8").strip()
-                logging.info(line2)
+                self.logger.info(f'{line2}')
                 if line2 == '':
-                    #logging.info("Emtpy line")
+                    #self.logger.info("Emtpy line")
                     pass
                 elif line2.startswith('#'):
-                    logging.info("Found comment line")
+                    self.logger.info(f"Found comment line: {line2}")
                 else:
                     self.parseLine(line2)
-        logging.debug("Finished running worker")
+        self.logger.debug("Finished running worker")
 
     def parseLine(self, line):
         """
@@ -72,11 +73,10 @@ class DataWorker(threading.Thread):
                     self._data = np.roll(self._data, -1) # move all data to left by 1
                     self._data[:,-1] = values # replace last data with new values
             else:
-                logging.error("Wrong number of values")
-                logging.error(line)
+                self.logger.error(f"Wrong number of values: {line}")
         except Exception as e:
-            logging.error("error parsing: "+str(e))
-            logging.error(line)
+            self.logger.exception("Exception in parsing")
+            self.logger.error(f'{line}')
 
 
 class Plotter():
@@ -119,8 +119,25 @@ class Plotter():
 
 
 if __name__ == "__main__":
-    fmt = "%(message)s"
-    logging.basicConfig(format=fmt, level=logging.INFO)
+    log_file_name = "log.csv"
+    # date format '2021-08-29 22:29:32.004582' which is same as str(dt.now())
+    # Formatter's datefmt doesn't support milliseconds %f but it has %(msecs) separately
+    date_fmt = "%Y-%m-%d %H:%M:%S" 
+    format = logging.Formatter("%(asctime)s.%(msecs)03d,%(message)s", datefmt=date_fmt)
+    #format = logging.Formatter("%(message)s") # if you prefre not adding timestamp
+    stream_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(log_file_name)
+    stream_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(format)
+    file_handler.setFormatter(format)
+    # need to create root logger (WHY?)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    #root_logger.addHandler(logging.StreamHandler())
+    logger = logging.getLogger("serial_plotter")
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
 
     port = "/dev/tty.usbmodem14201"
     baudrate = 115200
